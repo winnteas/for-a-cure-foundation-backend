@@ -29,7 +29,7 @@ app.post("/contact", async (req, res) => {
     try {
     const response = await resend.emails.send({
       from: "For A Cure <onboarding@resend.dev>",
-      to: process.env.EMAIL_USER,
+      to: process.env.EMAIL_USER ?? "",
       subject: `New Contact Form Message from ${senderEmail}`,
       text: `
 New message from: ${senderEmail}
@@ -39,7 +39,7 @@ ${message}
       `,
     });
 
-    res.json({ success: true, id: response.id });
+    res.json({ success: true, id: response.data?.id });
   } catch (error) {
     console.error("Resend error:", error);
     res.status(500).json({ error: "Failed to send email" });
