@@ -1,5 +1,4 @@
 import express from "express";
-import nodemailer from "nodemailer";
 import cors from "cors";
 import dotenv from "dotenv";
 import { Resend } from "resend";
