@@ -46,6 +46,59 @@ ${message}
   }
 });
 
+// POST /subscribe route
+app.post("/subscribe", async (req, res) => {
+  const {email: senderEmail } = req.body;
+
+  if ( !senderEmail) {
+    return res.status(400).json({ error: "Missing fields" });
+  }
+
+    try {
+    const response = await resend.emails.send({
+      from: "For A Cure <onboarding@resend.dev>",
+      to: process.env.EMAIL_USER ?? "",
+      subject: `New Subscription from ${senderEmail}`,
+      text: `
+${senderEmail} would like to subscribe to the newsletter.
+      `,
+    });
+
+    res.json({ success: true, id: response.data?.id });
+  } catch (error) {
+    console.error("Resend error:", error);
+    res.status(500).json({ error: "Failed to send email" });
+  }
+});
+
+// POST /team-up route
+app.post("/team-up", async (req, res) => {
+  const {firstName, lastName, email: senderEmail, message } = req.body;
+
+  if ( !senderEmail || !message) {
+    return res.status(400).json({ error: "Missing fields" });
+  }
+
+    try {
+    const response = await resend.emails.send({
+      from: "For A Cure <onboarding@resend.dev>",
+      to: process.env.EMAIL_USER ?? "",
+      subject: `New Team Up Message from ${senderEmail}`,
+      text: `
+      First Name: ${firstName}
+      Last Name: ${lastName}
+      Email: ${senderEmail}
+      Message: ${message}
+      `,
+    });
+
+    res.json({ success: true, id: response.data?.id });
+  } catch (error) {
+    console.error("Resend error:", error);
+    res.status(500).json({ error: "Failed to send email" });
+  }
+});
+
 // Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
