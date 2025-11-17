@@ -2,6 +2,7 @@ import express from "express";
 import nodemailer from "nodemailer";
 import cors from "cors";
 import dotenv from "dotenv";
+import { Resend } from "resend";
 
 dotenv.config();
 
@@ -15,6 +16,7 @@ const forACurePassword = process.env.EMAIL_PASS
 console.log("Email user:", forACureEmail);
 console.log("Email pass:", forACurePassword ? "loaded" : "missing");
 
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 
 // POST /contact route
@@ -25,30 +27,22 @@ app.post("/contact", async (req, res) => {
     return res.status(400).json({ error: "Missing fields" });
   }
 
-  try {
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: forACureEmail,
-        pass: forACurePassword,
-      },
-    });
-
-    const mailOptions = {
-      from: forACureEmail,
-      to: forACureEmail,
+    try {
+    const response = await resend.emails.send({
+      from: "For A Cure <onboarding@resend.dev>",
+      to: process.env.EMAIL_USER,
       subject: `New Contact Form Message from ${senderEmail}`,
       text: `
-This was the message sent from ${senderEmail}:
+New message from: ${senderEmail}
+
+Message:
 ${message}
       `,
-    };
+    });
 
-    await transporter.sendMail(mailOptions);
-
-    res.json({ success: true, message: "Email sent successfully" });
+    res.json({ success: true, id: response.id });
   } catch (error) {
-    console.error("Email error:", error);
+    console.error("Resend error:", error);
     res.status(500).json({ error: "Failed to send email" });
   }
 });
