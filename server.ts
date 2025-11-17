@@ -73,7 +73,7 @@ ${senderEmail} would like to subscribe to the newsletter.
 
 // POST /team-up route
 app.post("/team-up", async (req, res) => {
-  const {firstName, lastName, email: senderEmail, message } = req.body;
+  const {firstName, lastName, email: senderEmail, phone, message } = req.body;
 
   if ( !senderEmail || !message) {
     return res.status(400).json({ error: "Missing fields" });
@@ -88,6 +88,7 @@ app.post("/team-up", async (req, res) => {
       First Name: ${firstName}
       Last Name: ${lastName}
       Email: ${senderEmail}
+      Phone: ${phone}
       Message: ${message}
       `,
     });
