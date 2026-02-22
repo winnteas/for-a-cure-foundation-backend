@@ -6,7 +6,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
-
+import pool from './db';
 
 dotenv.config();
 
@@ -187,6 +187,73 @@ function requireAdmin(req: express.Request, res: express.Response, next: express
 
 app.get('/verify', requireAdmin, (req, res) => {
   res.json({ authenticated: true });
+});
+
+// News
+
+// GET /news — fetch all articles
+app.get('/news', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM news ORDER BY created_at DESC');
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to fetch news' });
+  }
+});
+
+// POST /news — create an article
+app.post('/news', requireAdmin, async (req, res) => {
+  const { title, date, desc, category, categoryType, image } = req.body;
+
+  if (!title || !date || !desc || !category || !categoryType || !image) {
+    return res.status(400).json({ error: 'Missing fields' });
+  }
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO news (title, date, desc, category, slug, image)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [title, date, desc, category, categoryType, image]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to create news item' });
+  }
+});
+
+// PUT /news/:id — update an article
+app.put('/news/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { title, date, desc, category, categoryType, image } = req.body;
+
+  try {
+    const result = await pool.query(
+      `UPDATE news SET title=$1, date=$2, desc=$3, category=$4, slug=$5, image=$6
+       WHERE id=$7 RETURNING *`,
+      [title, date, desc, category, categoryType, image, id]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Not found' });
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to update news item' });
+  }
+});
+
+// DELETE /news/:id — delete an article
+app.delete('/news/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await pool.query('DELETE FROM news WHERE id=$1', [id]);
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Not found' });
+    res.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to delete news item' });
+  }
 });
 
 // Start server
