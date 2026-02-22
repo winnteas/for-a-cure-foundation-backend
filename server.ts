@@ -2,6 +2,9 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { Resend } from "resend";
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import rateLimit from 'express-rate-limit';
 
 dotenv.config();
 
@@ -98,6 +101,37 @@ app.post("/team-up", async (req, res) => {
     console.error("Resend error:", error);
     res.status(500).json({ error: "Failed to send email" });
   }
+});
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 attempts per window
+  message: { error: 'Too many login attempts, try again later' },
+});
+
+
+// POST /login route
+app.post('/login', loginLimiter,async (req, res) => {
+  const { username, password } = req.body;
+
+  const validUsername = username === process.env.ADMIN_USERNAME;
+  const validPassword = await bcrypt.compare(
+    password,
+    process.env.ADMIN_PASSWORD_HASH!
+  );
+
+  // Compare both before responding to avoid username enumeration
+  if (!validUsername || !validPassword) {
+    return res.status(401).json({ error: 'Invalid credentials' });
+  }
+
+  const token = jwt.sign(
+    { role: 'admin' },
+    process.env.JWT_SECRET!,
+    { expiresIn: '8h' }
+  );
+
+  res.json({ token });
 });
 
 // Start server
