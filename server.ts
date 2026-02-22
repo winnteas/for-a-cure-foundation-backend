@@ -5,12 +5,35 @@ import { Resend } from "resend";
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
+import cookieParser from 'cookie-parser';
+
 
 dotenv.config();
 
 const app = express();
-app.use(cors());
+
+const allowedOrigins = [
+  process.env.ALLOWED_ORIGIN,   
+  'http://localhost:3000',       // your local dev server (adjust port if needed)
+].filter(Boolean) as string[];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // allow requests with no origin (e.g. curl, Postman)
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+}));
+
+
 app.use(express.json());
+
+app.use(cookieParser());
+
 
 const forACureEmail = process.env.EMAIL_USER
 const forACurePassword = process.env.EMAIL_PASS
@@ -131,7 +154,39 @@ app.post('/login', loginLimiter,async (req, res) => {
     { expiresIn: '8h' }
   );
 
-  res.json({ token });
+  res.cookie('token', token, {
+    httpOnly: true,      // JS can't access it
+    secure: true,        // only sent over HTTPS
+    sameSite: 'strict',  // protects against CSRF
+    maxAge: 8 * 60 * 60 * 1000, // 8 hours in ms
+  });
+
+  res.json({ success: true });
+});
+
+app.post('/logout', (req, res) => {
+  res.clearCookie('token');
+  res.json({ success: true });
+});
+
+function requireAdmin(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const token = req.cookies?.token;
+
+  if (!token) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET!) as { role: string };
+    if (payload.role !== 'admin') throw new Error();
+    next();
+  } catch {
+    res.status(401).json({ error: 'Invalid or expired token' });
+  }
+}
+
+app.get('/verify', requireAdmin, (req, res) => {
+  res.json({ authenticated: true });
 });
 
 // Start server
