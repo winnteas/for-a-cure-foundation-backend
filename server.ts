@@ -106,7 +106,7 @@ app.post("/team-up", async (req, res) => {
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 10, // 10 attempts per window
-  message: { error: 'Too many login attempts, try again later' },
+  message: 'Too many login attempts, try again later',
 });
 
 
