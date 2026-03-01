@@ -13,7 +13,11 @@ dotenv.config();
 const app = express();
 
 app.set('trust proxy', 1);
-app.use(express.json({ limit: '10mb' }));
+app.use((req, res, next) => {
+  console.log('Origin:', req.headers.origin);
+  console.log('Method:', req.method);
+  next();
+});
 
 const allowedOrigins = [
   process.env.ALLOWED_ORIGIN,
@@ -31,6 +35,8 @@ app.use(cors({
   credentials: true,
 }));
 
+
+app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
 
 const forACureEmail = process.env.EMAIL_USER;
@@ -152,7 +158,7 @@ app.post('/login', loginLimiter, async (req, res) => {
   res.cookie('token', token, {
     httpOnly: true,
     secure: true,
-    sameSite: 'none',  // required for cross-origin cookies
+    sameSite: 'lax',
     maxAge: 8 * 60 * 60 * 1000,
   });
 
