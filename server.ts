@@ -16,13 +16,12 @@ app.set('trust proxy', 1);
 app.use(express.json({ limit: '10mb' }));
 
 const allowedOrigins = [
-  process.env.ALLOWED_ORIGIN,   
-  'http://localhost:3000',       // your local dev server (adjust port if needed)
+  process.env.ALLOWED_ORIGIN,
+  'http://localhost:3000',
 ].filter(Boolean) as string[];
 
 app.use(cors({
   origin: (origin, callback) => {
-    // allow requests with no origin (e.g. curl, Postman)
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -32,30 +31,25 @@ app.use(cors({
   credentials: true,
 }));
 
-
-app.use(express.json());
-
 app.use(cookieParser());
 
-
-const forACureEmail = process.env.EMAIL_USER
-const forACurePassword = process.env.EMAIL_PASS
+const forACureEmail = process.env.EMAIL_USER;
+const forACurePassword = process.env.EMAIL_PASS;
 
 console.log("Email user:", forACureEmail);
 console.log("Email pass:", forACurePassword ? "loaded" : "missing");
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-
 // POST /contact route
 app.post("/contact", async (req, res) => {
-  const {email: senderEmail, message } = req.body;
+  const { email: senderEmail, message } = req.body;
 
-  if ( !senderEmail || !message) {
+  if (!senderEmail || !message) {
     return res.status(400).json({ error: "Missing fields" });
   }
 
-    try {
+  try {
     const response = await resend.emails.send({
       from: "For A Cure <onboarding@resend.dev>",
       to: process.env.EMAIL_USER ?? "",
@@ -77,13 +71,13 @@ ${message}
 
 // POST /subscribe route
 app.post("/subscribe", async (req, res) => {
-  const {email: senderEmail } = req.body;
+  const { email: senderEmail } = req.body;
 
-  if ( !senderEmail) {
+  if (!senderEmail) {
     return res.status(400).json({ error: "Missing fields" });
   }
 
-    try {
+  try {
     const response = await resend.emails.send({
       from: "For A Cure <onboarding@resend.dev>",
       to: process.env.EMAIL_USER ?? "",
@@ -102,13 +96,13 @@ ${senderEmail} would like to subscribe to the newsletter.
 
 // POST /team-up route
 app.post("/team-up", async (req, res) => {
-  const {firstName, lastName, email: senderEmail, phone, message } = req.body;
+  const { firstName, lastName, email: senderEmail, phone, message } = req.body;
 
-  if ( !senderEmail || !message) {
+  if (!senderEmail || !message) {
     return res.status(400).json({ error: "Missing fields" });
   }
 
-    try {
+  try {
     const response = await resend.emails.send({
       from: "For A Cure <onboarding@resend.dev>",
       to: process.env.EMAIL_USER ?? "",
@@ -130,14 +124,13 @@ app.post("/team-up", async (req, res) => {
 });
 
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // 10 attempts per window
+  windowMs: 15 * 60 * 1000,
+  max: 10,
   message: 'Too many login attempts, try again later',
 });
 
-
 // POST /login route
-app.post('/login', loginLimiter,async (req, res) => {
+app.post('/login', loginLimiter, async (req, res) => {
   const { username, password } = req.body;
 
   const validUsername = username === process.env.ADMIN_USERNAME;
@@ -146,7 +139,6 @@ app.post('/login', loginLimiter,async (req, res) => {
     process.env.ADMIN_PASSWORD_HASH!
   );
 
-  // Compare both before responding to avoid username enumeration
   if (!validUsername || !validPassword) {
     return res.status(401).json({ error: 'Invalid credentials' });
   }
@@ -158,10 +150,10 @@ app.post('/login', loginLimiter,async (req, res) => {
   );
 
   res.cookie('token', token, {
-    httpOnly: true,      // JS can't access it
-    secure: true,        // only sent over HTTPS
-    sameSite: 'strict',  // protects against CSRF
-    maxAge: 8 * 60 * 60 * 1000, // 8 hours in ms
+    httpOnly: true,
+    secure: true,
+    sameSite: 'none',  // required for cross-origin cookies
+    maxAge: 8 * 60 * 60 * 1000,
   });
 
   res.json({ success: true });
@@ -192,8 +184,6 @@ app.get('/verify', requireAdmin, (req, res) => {
   res.json({ authenticated: true });
 });
 
-// News
-
 // GET /news — fetch all articles
 app.get('/news', async (req, res) => {
   try {
@@ -213,17 +203,17 @@ app.get('/news', async (req, res) => {
 
 // POST /news — create an article
 app.post('/news', requireAdmin, async (req, res) => {
-  const { title, date, content, category, image, author } = req.body;
+  const { title, date, description, category, slug, image, author } = req.body;
 
-  if (!title || !date || !content || !category || !image || !author) {
+  if (!title || !date || !description || !category || !slug || !image || !author) {
     return res.status(400).json({ error: 'Missing fields' });
   }
 
   try {
     const result = await pool.query(
-      `INSERT INTO news (title, date, content, category, slug, image, author)
+      `INSERT INTO news (title, date, description, category, slug, image, author)
        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [title, date, content, category, image, author]
+      [title, date, description, category, slug, image, author]
     );
     res.status(201).json(result.rows[0]);
   } catch (error) {
@@ -235,13 +225,13 @@ app.post('/news', requireAdmin, async (req, res) => {
 // PUT /news/:id — update an article
 app.put('/news/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
-  const { title, date, content, category, image, author } = req.body;
+  const { title, date, description, category, slug, image, author } = req.body;
 
   try {
     const result = await pool.query(
-      `UPDATE news SET title=$1, date=$2, content=$3, category=$4, slug=$5, image=$6, author=$7
+      `UPDATE news SET title=$1, date=$2, description=$3, category=$4, slug=$5, image=$6, author=$7
        WHERE id=$8 RETURNING *`,
-      [title, date, content, category, image, author, id]
+      [title, date, description, category, slug, image, author, id]
     );
     if (result.rowCount === 0) return res.status(404).json({ error: 'Not found' });
     res.json(result.rows[0]);
