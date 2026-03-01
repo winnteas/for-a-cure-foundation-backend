@@ -13,6 +13,7 @@ dotenv.config();
 const app = express();
 
 app.set('trust proxy', 1);
+app.use(express.json({ limit: '10mb' }));
 
 const allowedOrigins = [
   process.env.ALLOWED_ORIGIN,   
