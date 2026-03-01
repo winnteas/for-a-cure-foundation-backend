@@ -247,6 +247,20 @@ app.put('/news/:id', requireAdmin, async (req, res) => {
   }
 });
 
+
+// GET /news/:id — fetch a single article
+app.get('/news/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query('SELECT * FROM news WHERE id = $1', [id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to fetch news item' });
+  }
+});
+
 // DELETE /news/:id — delete an article
 app.delete('/news/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
