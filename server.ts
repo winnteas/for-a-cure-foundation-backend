@@ -12,6 +12,8 @@ dotenv.config();
 
 const app = express();
 
+app.set('trust proxy', 1);
+
 const allowedOrigins = [
   process.env.ALLOWED_ORIGIN,   
   'http://localhost:3000',       // your local dev server (adjust port if needed)
@@ -194,7 +196,13 @@ app.get('/verify', requireAdmin, (req, res) => {
 // GET /news — fetch all articles
 app.get('/news', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM news ORDER BY created_at DESC');
+    const author = req.query.author;
+    let result;
+    if (author) {
+      result = await pool.query('SELECT * FROM news WHERE author = $1 ORDER BY created_at DESC', [author]);
+    } else {
+      result = await pool.query('SELECT * FROM news ORDER BY created_at DESC');
+    }
     res.json(result.rows);
   } catch (error) {
     console.error(error);
@@ -204,17 +212,17 @@ app.get('/news', async (req, res) => {
 
 // POST /news — create an article
 app.post('/news', requireAdmin, async (req, res) => {
-  const { title, date, desc, category, categoryType, image } = req.body;
+  const { title, date, content, category, image, author } = req.body;
 
-  if (!title || !date || !desc || !category || !categoryType || !image) {
+  if (!title || !date || !content || !category || !image || !author) {
     return res.status(400).json({ error: 'Missing fields' });
   }
 
   try {
     const result = await pool.query(
-      `INSERT INTO news (title, date, desc, category, slug, image)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [title, date, desc, category, categoryType, image]
+      `INSERT INTO news (title, date, content, category, slug, image, author)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [title, date, content, category, image, author]
     );
     res.status(201).json(result.rows[0]);
   } catch (error) {
@@ -226,13 +234,13 @@ app.post('/news', requireAdmin, async (req, res) => {
 // PUT /news/:id — update an article
 app.put('/news/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
-  const { title, date, desc, category, categoryType, image } = req.body;
+  const { title, date, content, category, image, author } = req.body;
 
   try {
     const result = await pool.query(
-      `UPDATE news SET title=$1, date=$2, desc=$3, category=$4, slug=$5, image=$6
-       WHERE id=$7 RETURNING *`,
-      [title, date, desc, category, categoryType, image, id]
+      `UPDATE news SET title=$1, date=$2, content=$3, category=$4, slug=$5, image=$6, author=$7
+       WHERE id=$8 RETURNING *`,
+      [title, date, content, category, image, author, id]
     );
     if (result.rowCount === 0) return res.status(404).json({ error: 'Not found' });
     res.json(result.rows[0]);

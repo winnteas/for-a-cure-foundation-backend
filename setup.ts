@@ -15,12 +15,13 @@ const setup = async () => {
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       title TEXT NOT NULL,
       date TEXT NOT NULL,
-      description TEXT NOT NULL,
+      content TEXT NOT NULL,
       category TEXT NOT NULL,
       category_type TEXT NOT NULL,
       slug TEXT NOT NULL,
       image TEXT NOT NULL,
-      created_at TIMESTAMP DEFAULT NOW()
+      created_at TIMESTAMP DEFAULT NOW(),
+      author TEXT NOT NULL
     )
   `);
   console.log('Tables created');
