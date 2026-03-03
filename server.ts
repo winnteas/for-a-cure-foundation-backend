@@ -155,10 +155,12 @@ app.post('/login', loginLimiter, async (req, res) => {
     { expiresIn: '8h' }
   );
 
+  const isProd = process.env.NODE_ENV === 'production';
+
   res.cookie('token', token, {
     httpOnly: true,
-    secure: true,
-    sameSite: 'lax',
+    secure: isProd,                 // false locally, true in prod
+    sameSite: isProd ? 'none' : 'lax', // cross-site in prod, simple in local
     maxAge: 8 * 60 * 60 * 1000,
   });
 
