@@ -275,6 +275,53 @@ app.delete('/news/:id', requireAdmin, async (req, res) => {
   }
 });
 
+// GET /news/related — fetch 3 related articles by category
+app.get('/news/related', async (req, res) => {
+  const { category, excludeId } = req.query;
+
+  try {
+    let result;
+    if (category) {
+      result = await pool.query(
+        `SELECT * FROM news 
+         WHERE category = $1 AND id != $2 
+         ORDER BY date DESC 
+         LIMIT 3`,
+        [category, excludeId || '00000000-0000-0000-0000-000000000000']
+      );
+
+      // If less than 3 in same category, fill with other articles
+      if (result.rows.length < 3) {
+        const remaining = 3 - result.rows.length;
+        const existingIds = result.rows.map((r: { id: string }) => r.id);
+        const excludeIds = [excludeId, ...existingIds].filter(Boolean);
+
+        const filler = await pool.query(
+          `SELECT * FROM news 
+           WHERE id != ALL($1::uuid[])
+           ORDER BY date DESC 
+           LIMIT $2`,
+          [excludeIds, remaining]
+        );
+        result.rows = [...result.rows, ...filler.rows];
+      }
+    } else {
+      result = await pool.query(
+        `SELECT * FROM news 
+         WHERE id != $1
+         ORDER BY date DESC 
+         LIMIT 3`,
+        [excludeId || '00000000-0000-0000-0000-000000000000']
+      );
+    }
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to fetch related articles' });
+  }
+});
+
 // Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
