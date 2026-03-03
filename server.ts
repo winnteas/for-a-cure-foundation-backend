@@ -159,8 +159,8 @@ app.post('/login', loginLimiter, async (req, res) => {
 
   res.cookie('token', token, {
     httpOnly: true,
-    secure: isProd,                 // false locally, true in prod
-    sameSite: isProd ? 'none' : 'lax', // cross-site in prod, simple in local
+    secure: true,          // backend is https
+    sameSite: 'none',      // REQUIRED for cross-site (localhost -> render.com)
     maxAge: 8 * 60 * 60 * 1000,
   });
 
