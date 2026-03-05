@@ -20,7 +20,8 @@ app.use((req, res, next) => {
 });
 
 const allowedOrigins = [
-  process.env.ALLOWED_ORIGIN,
+  'https://foracure.org.au',
+  'https://www.foracure.org.au',
   'http://localhost:3000',
 ].filter(Boolean) as string[];
 
