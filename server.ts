@@ -231,6 +231,69 @@ app.post('/news', requireAdmin, async (req, res) => {
   }
 });
 
+
+// GET /news/related — fetch 3 related articles by category
+app.get('/news/related', async (req, res) => {
+  const { category, excludeId } = req.query;
+  const fallbackId = excludeId || '00000000-0000-0000-0000-000000000000';
+  
+  try {
+    let result;
+    
+    if (category) {
+      result = await pool.query(
+        `SELECT * FROM news 
+        WHERE category ILIKE $1 AND id != $2 
+        ORDER BY date DESC 
+        LIMIT 3`,
+        [category, fallbackId]
+      );
+    }
+    
+    // If no category provided, no results, or less than 3, fill from all articles
+    if (!result || result.rows.length === 0) {
+      result = await pool.query(
+        `SELECT * FROM news 
+        WHERE id != $1
+        ORDER BY date DESC 
+        LIMIT 3`,
+        [fallbackId]
+      );
+    } else if (result.rows.length < 3) {
+      const remaining = 3 - result.rows.length;
+      const existingIds = result.rows.map((r: { id: string }) => r.id);
+      const excludeIds = [excludeId, ...existingIds].filter(Boolean);
+      
+      const filler = await pool.query(
+        `SELECT * FROM news 
+        WHERE id != ALL($1::uuid[]) AND category ILIKE $3
+        ORDER BY date DESC 
+        LIMIT $2`,
+        [excludeIds, remaining, category]
+      );
+      result.rows = [...result.rows, ...filler.rows];
+    }
+    
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to fetch related articles' });
+  }
+});
+
+// GET /news/categories — fetch all unique categories
+app.get('/news/categories', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT DISTINCT category FROM news ORDER BY category ASC`
+    );
+    res.json(result.rows.map((row: { category: string }) => row.category));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to fetch categories' });
+  }
+});
+
 // PUT /news/:id — update an article
 app.put('/news/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
@@ -275,68 +338,6 @@ app.delete('/news/:id', requireAdmin, async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to delete news item' });
-  }
-});
-
-// GET /news/related — fetch 3 related articles by category
-app.get('/news/related', async (req, res) => {
-  const { category, excludeId } = req.query;
-  const fallbackId = excludeId || '00000000-0000-0000-0000-000000000000';
-
-  try {
-    let result;
-
-    if (category) {
-      result = await pool.query(
-        `SELECT * FROM news 
-         WHERE category ILIKE $1 AND id != $2 
-         ORDER BY date DESC 
-         LIMIT 3`,
-        [category, fallbackId]
-      );
-    }
-
-    // If no category provided, no results, or less than 3, fill from all articles
-    if (!result || result.rows.length === 0) {
-      result = await pool.query(
-        `SELECT * FROM news 
-         WHERE id != $1
-         ORDER BY date DESC 
-         LIMIT 3`,
-        [fallbackId]
-      );
-    } else if (result.rows.length < 3) {
-      const remaining = 3 - result.rows.length;
-      const existingIds = result.rows.map((r: { id: string }) => r.id);
-      const excludeIds = [excludeId, ...existingIds].filter(Boolean);
-
-      const filler = await pool.query(
-        `SELECT * FROM news 
-         WHERE id != ALL($1::uuid[]) AND category ILIKE $3
-         ORDER BY date DESC 
-         LIMIT $2`,
-        [excludeIds, remaining, category]
-      );
-      result.rows = [...result.rows, ...filler.rows];
-    }
-
-    res.json(result.rows);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Failed to fetch related articles' });
-  }
-});
-
-// GET /news/categories — fetch all unique categories
-app.get('/news/categories', async (req, res) => {
-  try {
-    const result = await pool.query(
-      `SELECT DISTINCT category FROM news ORDER BY category ASC`
-    );
-    res.json(result.rows.map((row: { category: string }) => row.category));
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Failed to fetch categories' });
   }
 });
 
