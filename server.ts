@@ -289,7 +289,7 @@ app.get('/news/related', async (req, res) => {
     if (category) {
       result = await pool.query(
         `SELECT * FROM news 
-         WHERE category = $1 AND id != $2 
+         WHERE category ILIKE $1 AND id != $2 
          ORDER BY date DESC 
          LIMIT 3`,
         [category, fallbackId]
@@ -312,10 +312,10 @@ app.get('/news/related', async (req, res) => {
 
       const filler = await pool.query(
         `SELECT * FROM news 
-         WHERE id != ALL($1::uuid[])
+         WHERE id != ALL($1::uuid[]) AND category ILIKE $3
          ORDER BY date DESC 
          LIMIT $2`,
-        [excludeIds, remaining]
+        [excludeIds, remaining, category]
       );
       result.rows = [...result.rows, ...filler.rows];
     }
